@@ -45,4 +45,3 @@ tensorboard --logdir=contactlearning/Logs
 ### Evaluation and results
 [`eval_utils.py`](contactlearning/eval_utils.py) includes helper methods used in `train.py` to evaluate trained models. 
 Both training and evaluation results are stored in a `.json` file at *contactlearning/Results*
-//Training and Evaluation
