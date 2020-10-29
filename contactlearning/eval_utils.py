@@ -6,13 +6,6 @@ import pdb
 from scipy.spatial.transform import Rotation as R
 from scipy.spatial.transform import RotationSpline
 
-# try:
-#   %tensorflow_version 2.x
-# except Exception:
-#   pass
-
-# %load_ext tensorboard
-
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import Dataset, DataLoader
 
@@ -50,34 +43,18 @@ def getRotationalError(input_sequence, full_pred_state, state_labels = None, rol
 	Output:
 	err_rot: numpy array of shape ()  which is a vector representing the average rotational error
 	"""
-
-	# pred_last_state = input_sequence[-1,0,:]
-
-	# pred_last_quat = pred_last_state[3:7].numpy()
-	# pred_last_quat = np.array([pred_last_quat[1], pred_last_quat[2], pred_last_quat[3], pred_last_quat[0]])/np.linalg.norm(pred_last_quat)
 	
 	pred_curr_quat = full_pred_state[0,3:7]
 	pred_curr_quat = np.array([pred_curr_quat[1], pred_curr_quat[2], pred_curr_quat[3], pred_curr_quat[0]])/np.linalg.norm(pred_curr_quat)
 
-	# pred_rot_angle = getRotationalAngle(pred_last_quat, pred_curr_quat)
-
 	if not single_step:
-		# act_last_state = state_labels[tw+rolled_time - 1,:].numpy()
-		# act_last_quat = act_last_state[3:7]
-		# act_last_quat = np.array([act_last_quat[1], act_last_quat[2], act_last_quat[3], act_last_quat[0]])/np.linalg.norm(act_last_quat)
-
 		act_curr_state = state_labels[rolled_time,:].numpy()
 		act_curr_quat = act_curr_state[3:7]
 		act_curr_quat = np.array([act_curr_quat[1], act_curr_quat[2], act_curr_quat[3], act_curr_quat[0]])/np.linalg.norm(act_curr_quat)
 	else:
-		# act_last_state = pred_last_state
-		# act_last_quat = pred_last_quat
-
 		act_curr_state = state_labels[0].numpy()
 		act_curr_quat = act_curr_state[3:7]
 		act_curr_quat = np.array([act_curr_quat[1], act_curr_quat[2], act_curr_quat[3], act_curr_quat[0]])/np.linalg.norm(act_curr_quat)
-
-	# act_rot_angle = getRotationalAngle(act_last_quat, act_curr_quat)
 
 	return np.linalg.norm(full_pred_state[0,:3] - act_curr_state[:3]),\
 		getTheta(act_curr_quat, pred_curr_quat)
@@ -114,7 +91,7 @@ def compute_state_vel(initial_states, output, dt = 0.0067):
 	full_pred_state: *numpy array* of shape = [1,13] composing of (q_pred, v_{finite_diff})
 	"""
 	last_state = initial_states[-1,0,:]
-	# output[0,3:7] = output[0,3:7]/np.linalg.norm(output[0,3:7].numpy())
+
 	quat_prev = last_state[3:7].numpy()
 	quat_prev = np.array([quat_prev[1], quat_prev[2], quat_prev[3], quat_prev[0]])/np.linalg.norm(quat_prev)
 	quat_curr = output[0,3:7].numpy()
@@ -138,15 +115,11 @@ def get_angular_pos(quat_prev, angVel_avg, dt = 0.0067):
 	quat_rot = np.array([axis_[0]*np.sin(theta/2), axis_[1]*np.sin(theta/2), axis_[2]*np.sin(theta/2), np.cos(theta/2)])
 	rot = R.from_quat(quat_rot)
 
-	# rot = angVel_avg*dt
-	# rot = R.from_euler("XYZ", rot)
-
 	prev_rot = R.from_quat(quat_prev)
 	res_rot = prev_rot*rot
 	res_rot_quat = res_rot.as_quat()
 	res_rot_quat = np.array([res_rot_quat[-1], res_rot_quat[0], res_rot_quat[1], res_rot_quat[2]])
 
-	# print("res_rot_quat: ", res_rot_quat)
 	return res_rot_quat
 
 def compute_state_pos(initial_states, output, dt = 0.0067):
@@ -163,7 +136,6 @@ def compute_state_pos(initial_states, output, dt = 0.0067):
 	"""
 
 	last_state = initial_states[-1,0,:]
-	#TODO: if pred_mode == "diff_vel": add last_state to output
 
 	angVel_prev = last_state[10:].numpy()
 	angVel_curr = output[0,3:].numpy()
@@ -179,10 +151,8 @@ def compute_state_pos(initial_states, output, dt = 0.0067):
 	pos_curr = pos_prev + (linearVel_avg*dt)
 
 	full_pred_pos = np.concatenate((pos_curr, quat_curr))
-	# print("full_pred_pos: ", full_pred_pos)
 
 	full_pred_state = np.concatenate((full_pred_pos, output[0,:])).reshape(1,-1)
-	# print("full_pred_state: ", full_pred_state)
 
 	return full_pred_state
 
@@ -205,12 +175,10 @@ def rollout_trajectory(trained_model, loss_function, state_sequence,  state_labe
 	diff_theta = []
 	loss_items = []
 	time_steps = np.minimum(state_labels.shape[0], time_steps)
-	# print("time-steps: ", time_steps)
+
 	device = next(trained_model.parameters()).device
 	if device is not torch.device("cpu"):
 		trained_model.to(torch.device("cpu"))
-	# scale_mean, scale_std = scale_mean.to(device), scale_std.to(device)
-	# pdb.set_trace()
 	trained_model.eval()
 	trajectory_ = np.copy(state_sequence)
 	input_sequence = torch.from_numpy(np.expand_dims(state_sequence, axis = 1)).float()
@@ -223,11 +191,7 @@ def rollout_trajectory(trained_model, loss_function, state_sequence,  state_labe
 		while(rolled_time < time_steps - 1):
 			rolled_time += 1
 			output = trained_model((input_sequence - scale_mean)/scale_std)
-			if pred_mode == "pos":
-				loss = loss_function(output, state_labels[rolled_time, :7].reshape(1,-1))
-				full_pred_state = compute_state_vel(input_sequence, output)
-				err_pos, err_theta = getRotationalError(input_sequence, full_pred_state, state_labels, rolled_time, tw)
-			elif pred_mode == "vel":
+			if pred_mode == "vel":
 				positional_loss = loss_function(output[:,:3], state_labels[rolled_time,7:10].reshape(1,-1))
 				rotational_loss = loss_function(output[:,3:], state_labels[rolled_time,10:].reshape(1,-1))
 				if weighted_loss:
@@ -235,51 +199,6 @@ def rollout_trajectory(trained_model, loss_function, state_sequence,  state_labe
 				else:
 					loss = loss_function(output, state_labels[rolled_time, 7:].reshape(1,-1))
 				full_pred_state = compute_state_pos(input_sequence, output)
-				err_pos, err_theta = getRotationalError(input_sequence, full_pred_state, state_labels, rolled_time, tw)
-			elif pred_mode == "full":
-				loss = loss_function(output, state_labels[rolled_time, :].reshape(1,-1))
-				full_pred_state = output.numpy()
-				err_pos, err_theta = getRotationalError(input_sequence, full_pred_state, state_labels, rolled_time, tw)
-			elif pred_mode == "dvel":
-				positional_loss = loss_function(output[:,:3], state_labels[rolled_time,7:10].reshape(1,-1))
-				rotational_loss = loss_function(output[:,3:], state_labels[rolled_time,10:].reshape(1,-1))
-				if weighted_loss:
-					loss = (weights[0]*positional_loss) + (weights[1]*rotational_loss)
-				else:
-					loss = loss_function(output, state_labels[rolled_time, 7:].reshape(1,-1))
-				output += input_sequence[-1,0,7:]
-				full_pred_state = compute_state_pos(input_sequence, output)
-				err_pos, err_theta = getRotationalError(input_sequence, full_pred_state, gt_trajectory, rolled_time, tw)
-			elif pred_mode == "dpos":
-				positional_loss = loss_function(output[:,:3], state_labels[rolled_time,:3].reshape(1,-1))
-				rotational_loss = loss_function(output[:,3:], state_labels[rolled_time,3:7].reshape(1,-1))
-				if weighted_loss:
-					loss = (weights[0]*positional_loss) + (weights[1]*rotational_loss)
-				else:
-					loss = loss_function(output, state_labels[rolled_time, :7].reshape(1,-1))
-				output += input_sequence[-1,0,:7]
-				full_pred_state = compute_state_vel(input_sequence, output)
-				err_pos, err_theta = getRotationalError(input_sequence, full_pred_state, gt_trajectory, rolled_time, tw)
-			elif pred_mode == "dx":
-				if weighted_loss:
-					print("Weighted loss not supported in dx!")
-					sys.exit(1)
-				else:
-					loss = loss_function(output, state_labels[rolled_time,:].reshape(1,-1))
-				output += input_sequence[-1,0,:]
-				output[0,3:7] = output[0,3:7]/np.linalg.norm(output[0,3:7])
-				full_pred_state = output
-				err_pos, err_theta = getRotationalError(input_sequence, full_pred_state, gt_trajectory, rolled_time, tw)
-			elif pred_mode == "fs":
-				if weighted_loss:
-					print("Weighted loss not supported in dx!")
-					sys.exit(1)
-				else:
-					loss = loss_function(output, state_labels[rolled_time, :7].reshape(1,-1))
-				output[0,3:7] = output[0,3:7]/np.linalg.norm(output[0,3:7])
-				full_pred_state = np.zeros((1,13))
-				full_pred_state[0,:7] = output
-				# pdb.set_trace()
 				err_pos, err_theta = getRotationalError(input_sequence, full_pred_state, state_labels, rolled_time, tw)
 			loss_items.append(loss.item())
 			running_loss += loss.item();
@@ -306,7 +225,7 @@ def pred_with_gt(rollout_dataloader, model, loss_function, tw = 16, pred_mode = 
 	device = next(model.parameters()).device
 	if device is not torch.device("cpu"):
 		model.to(torch.device("cpu"))
-	# scale_mean, scale_std = scale_mean.to(device), scale_std.to(device)
+
 	model.eval()
 	running_loss = 0
 	overall_step = 0
@@ -317,7 +236,7 @@ def pred_with_gt(rollout_dataloader, model, loss_function, tw = 16, pred_mode = 
 	with torch.no_grad():
 		for i, (data, labels) in enumerate(rollout_dataloader):
 			input_ = np.transpose(data, (1,0,2))
-			# input_ = input_ - scale_mean/scale_std
+
 			output = model((input_ - scale_mean)/scale_std)
 			if pred_mode == "vel":
 				positional_loss = loss_function(output[:,:3], labels[:,7:10])
@@ -330,64 +249,6 @@ def pred_with_gt(rollout_dataloader, model, loss_function, tw = 16, pred_mode = 
 				err_pos, err_theta = getRotationalError(input_, full_pred_state, labels, single_step = True)
 				plot_labels = np.append(plot_labels, labels.numpy(), axis = 0)
 				plot_predicted = np.append(plot_predicted, full_pred_state, axis = 0)
-			elif pred_mode == "pos":
-				loss = loss_function(output, labels[:,:7])
-				full_pred_state = compute_state_vel(input_, output)
-				err_pos, err_theta = getRotationalError(input_, full_pred_state, labels, single_step = True)
-				plot_labels = np.append(plot_labels, labels.numpy(), axis = 0)
-				plot_predicted = np.append(plot_predicted, full_pred_state, axis = 0)
-			elif pred_mode == "full":
-				loss = loss_function(output, labels)
-				full_pred_state = output.numpy()
-				err_pos, err_theta = getRotationalError(input_, full_pred_state, labels, single_step = True)
-				plot_labels = np.append(plot_labels, labels.numpy(), axis = 0)
-				plot_predicted = np.append(plot_predicted, full_pred_state, axis = 0)
-			elif pred_mode == "dvel":
-				positional_loss = loss_function(output[:,:3], labels[:,7:10])
-				rotational_loss = loss_function(output[:,3:], labels[:,10:])
-				if weighted_loss:
-					loss = (weights[0]*positional_loss) + (weights[1]*rotational_loss)
-				else:
-					loss = loss_function(output, labels[:, 7:].reshape(1,-1))
-				output += input_[-1,0,7:]
-				full_pred_state = compute_state_pos(input_, output)
-				err_pos, err_theta = getRotationalError(input_, full_pred_state, labels + input_[-1], single_step = True)
-				plot_labels = np.append(plot_labels, labels.numpy(), axis = 0)
-				plot_predicted = np.append(plot_predicted, full_pred_state, axis = 0)
-			elif pred_mode == "dpos":
-				positional_loss = loss_function(output[:,:3], labels[:,:3])
-				rotational_loss = loss_function(output[:,3:], labels[:,3:7])
-				if weighted_loss:
-					loss = (weights[0]*positional_loss) + (weights[1]*rotational_loss)
-				else:
-					loss = loss_function(output, labels[:, :7].reshape(1,-1))
-				output += input_[-1,0,:7]
-				full_pred_state = compute_state_vel(input_, output)
-				err_pos, err_theta = getRotationalError(input_, full_pred_state, labels + input_[-1], single_step = True)
-				plot_labels = np.append(plot_labels, labels.numpy(), axis = 0)
-				plot_predicted = np.append(plot_predicted, full_pred_state, axis = 0)
-			elif pred_mode == "dx":
-				positional_loss = loss_function(output[:,:3], labels[:,:3]) + loss_function(output[:,7:10], labels[:,7:10])
-				rotational_loss = loss_function(output[:,3:7], labels[:,3:7]) + loss_function(output[:,10:], labels[:,10:])
-				if weighted_loss:
-					loss = (weights[0]*positional_loss) + (weights[1]*rotational_loss)
-				else:
-					loss = loss_function(output, labels[:, :].reshape(1,-1))
-				output += input_[-1,0,:]
-				output[0,3:7] = output[0,3:7]/np.linalg.norm(output[0,3:7])
-				full_pred_state = output
-				err_pos, err_theta = getRotationalError(input_, full_pred_state, labels + input_[-1], single_step = True)
-				plot_labels = np.append(plot_labels, labels.numpy(), axis = 0)
-				plot_predicted = np.append(plot_predicted, full_pred_state, axis = 0)
-			elif pred_mode == "fs":
-				if weighted_loss:
-					loss = (weights[0]*positional_loss) + (weights[1]*rotational_loss)
-				else:
-					loss = loss_function(output, labels[:, :7].reshape(1,-1))
-				output[0,3:7] = output[0,3:7]/np.linalg.norm(output[0,3:7])
-				full_pred_state = np.zeros((1,13))
-				full_pred_state[0,:7] = output
-				err_pos, err_theta = getRotationalError(input_, full_pred_state, labels, single_step = True)				
 			if verbose:
 				print("i: ", i)
 				print("input: ", input_)
@@ -417,7 +278,7 @@ def loadModel(PATH, trained_model, model_name = None):
 	trained_model_path = os.path.join(PATH, model_name)
 	device = torch.device("cpu")
 	checkpoint = torch.load(trained_model_path + ".pt", map_location = device)
-	# trained_model.load_state_dict(torch.load(trained_model_path + ".pt", map_location=device))
+
 	trained_model.load_state_dict(checkpoint['model_state_dict'])
 	trained_model.eval()
 
@@ -434,12 +295,7 @@ def evaluateRollout(PATH, trained_model, loss_function, num_tosses = 100, toss_s
 	for i in range(num_tosses):
 		test_data_ = np.loadtxt(PATH+str(start+i)+".csv", delimiter = ',').T
 		state_sequence = test_data_[:tw] #(tw, 13)
-		if (pred_mode == "dvel" or pred_mode == "dpos" or pred_mode == "dx"):
-			state_labels = test_data_[tw:,:] - test_data_[tw-1:-1,:]  #check this
-		elif pred_mode == "fs":
-			state_labels = test_data_[-1:]
-		else:
-			state_labels = test_data_[tw:] #shape = (x, 13)
+		state_labels = test_data_[tw:] #shape = (x, 13)
 		ground_truth_trajectory = test_data_[tw:] 
 		trajectory_, loss, err_pos, err_theta, _ = rollout_trajectory(trained_model, loss_function, state_sequence, state_labels, \
 													tw = tw, time_steps = 50, pred_mode=pred_mode, scale_mean = (mean_), scale_std = (std_), weighted_loss = weighted_loss, weights = weights, gt_trajectory = ground_truth_trajectory)
@@ -470,15 +326,11 @@ def evaluateSinglestep(PATH, trained_model, loss_function, num_tosses = 100, tos
 		total_loss += loss
 		total_err_pos += err_pos
 		total_err_theta += err_theta
-  # print("--------------------------------")
 
 	SINGLESTEP_ROT_ERR = total_err_theta/num_tosses
 	SINGLESTEP_LOSS = total_loss/num_tosses
 	SINGLESTEP_POS_ERR = total_err_pos/num_tosses
 
-	# print("Average train singlestep loss: ", total_loss/num_tosses)
-	# print("Average postional error: ", total_err_pos/num_tosses)
-	# print("Average rotational error: ", total_err_theta/num_tosses)
 	return SINGLESTEP_LOSS, SINGLESTEP_ROT_ERR, SINGLESTEP_POS_ERR
 
 if __name__ == "__main__":

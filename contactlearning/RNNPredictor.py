@@ -7,13 +7,6 @@ import pdb
 from scipy.spatial.transform import Rotation as R
 from scipy.spatial.transform import RotationSpline
 
-# try:
-#   %tensorflow_version 2.x
-# except Exception:
-#   pass
-
-# %load_ext tensorboard
-
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import Dataset, DataLoader
 
@@ -46,8 +39,6 @@ class RNNPredictor(nn.Module):
     self.input_size = input_size
     self.output_size = output_size
     self.dropout = dropout
-    # self.scale_mean = scale_mean
-    # self.scale_std = scale_std
 
     if mode not in ["rnn", "lstm", "bilstm", "gru"]:
       raise ValueError("Choose a mode from - lstm/bisltm/rnn/gru")
@@ -71,8 +62,6 @@ class RNNPredictor(nn.Module):
     self.fc2 = nn.Linear(int(self.hidden_size/2), self.output_size)
 
   def forward(self, input_):
-    
-    # input_ = (input_ - self.scale_mean)/self.scale_std
 
     if (self.mode == "rnn" or self.mode == "gru"):
       (_,hidden_output) = self.recurrent(input_)

@@ -22,15 +22,13 @@ def getTrainingData(PATH, stiffness = 2500, perturb_width = 10, \
 		num_train_tosses = 500, num_test_tosses = 30, \
 		common_test = True, tw = 16, num_start = 1, predict_mode = "vel"):
 
-  X, y = getRecurrentDataset(os.path.join(PATH, str(stiffness), str(perturb_width), "mujoco_sim"), 
+  X, y = getRecurrentDataset(os.path.join(PATH, str(stiffness), "mujoco_sim"), 
                               num_start, num_train_tosses, tw = tw, predict_mode = predict_mode)
-  X_test, y_test = getRecurrentDataset(os.path.join(PATH, str(stiffness), str(perturb_width), "mujoco_sim"), 
+  X_test, y_test = getRecurrentDataset(os.path.join(PATH, str(stiffness), "mujoco_sim"), 
                               num_start, num_test_tosses, tw = tw, isTest = True, predict_mode = predict_mode)
   slice_val = (num_train_tosses*80)
   X = X[:,:slice_val, :]
   y = y[:slice_val, :]
-  print("For train: X shape = ", X.shape, ", Y shape = ", y.shape, "\n")
-  print("For test: X shape = ", X_test.shape, ", Y shape = ", y_test.shape, "\n")
 
   if not common_test:
     X_train, X_test, y_train, y_test = train_test_split(X.transpose((1,0,2)), y, train_size = 0.9, random_state = 42 )
@@ -60,7 +58,7 @@ def getScaling(X, normalize_ = False):
 def getDataLen(PATH, stiffness = 2500, \
 		perturb_width = 10, num_tosses = 30, isTest = False, tw = 16, num_start = 1):
 	
-	FILE_PREFIX = os.path.join(PATH, str(stiffness), str(perturb_width), "mujoco_sim")
+	FILE_PREFIX = os.path.join(PATH, str(stiffness), "mujoco_sim")
 	if not isTest:
 		NUM_START = num_start if (num_start+num_tosses < 9500) else (9500 - num_tosses)
 	else:
@@ -87,7 +85,7 @@ def train_predictor(model, train_dataloader, val_dataloader, loss_function, opti
   scale_mean, scale_std = scale_mean.to(device), scale_std.to(device)
   model.train()
   overall_step = 0
-  models_path = "/home/mihir/DAIR/compact_data/models/"
+  models_path = "models/"
   for epoch in range(epoch_start, num_epochs):
     print("Start of epoch: model.training: ", model.training)
     running_loss = 0
@@ -101,38 +99,16 @@ def train_predictor(model, train_dataloader, val_dataloader, loss_function, opti
       labels = labels.to(device)
       optimizer.zero_grad()
       output = model((input_ - scale_mean)/scale_std)
-      if pred_mode == "full":
-        loss = loss_function(output, labels[:,:])
-      elif (pred_mode == "vel" or pred_mode == "dvel"):
+      if (pred_mode == "vel"):
         positional_loss = loss_function(output[:,:3], labels[:,7:10])
         rotational_loss = loss_function(output[:,3:], labels[:,10:])
         if weighted_loss:
           loss = (weights[0]*positional_loss) + (weights[1]*rotational_loss)
         else:
-          loss = loss_function(output, labels[:, 7:])
-      elif (pred_mode == "pos" or pred_mode == "dpos"):
-        positional_loss = loss_function(output[:,:3], labels[:,:3])
-        rotational_loss = loss_function(output[:,3:], labels[:,3:7])
-        if weighted_loss:
-          loss = (weights[0]*positional_loss) + (weights[1]*rotational_loss)
-        else:
-          loss = loss_function(output, labels[:,:7])
-      elif (pred_mode == "dx"):
-        positional_loss = loss_function(output[:,:3], labels[:,:3]) + loss_function(output[:,7:10], labels[:,7:10])
-        rotational_loss = loss_function(output[:,3:7], labels[:,3:7]) + loss_function(output[:,10:], labels[:,10:])
-        if weighted_loss:
-          print("Weighted loss not supported in dx!")
-          sys.exit(1)
-        else:
-          loss = loss_function(output, labels) 
-      elif (pred_mode == "fs"):
-        positional_loss = loss_function(output[:,:3], labels[:,:3])
-        rotational_loss = loss_function(output[:,3:7], labels[:,3:7])
-        if weighted_loss:
-          print("Weighted loss not supported in dx!")
-          sys.exit(1)
-        else:
-          loss = loss_function(output, labels[:,:7])            
+          loss = loss_function(output, labels[:, 7:])  
+      else:
+        print("This mode is not supported in this repo\n")
+        sys.exit(1)  
       loss.backward()
       optimizer.step()
       running_loss += loss.item()
@@ -184,14 +160,6 @@ def evaluate_predictor(trained_model, test_dataloader, loss_function, pred_mode 
                         recurrent = True, device = torch.device("cpu"), weighted_loss = False, weights = [1,1]):
   """
   Validation of the trained model on test/val set.
-
-  Inputs:
-  trained_model: Object of the trained model
-  test_dataloader: Object of the test/val dataloader
-  loss_function: Object of the loss_function to be used
-
-  Output:
-  average loss over the dataset
   """
   if weighted_loss:
     print("Inside eval predictor -- using weighted loss with weights: ", weights)
@@ -203,7 +171,6 @@ def evaluate_predictor(trained_model, test_dataloader, loss_function, pred_mode 
   rotational_running_loss = 0
   overall_step = 0
   total = 0
-  # weights = np.array([1, 1, 1, 100, 100, 100]).reshape(1,-1)
   with torch.no_grad():
     for (data, labels) in test_dataloader:
       input_ = np.transpose(data, (1,0,2))
@@ -211,38 +178,16 @@ def evaluate_predictor(trained_model, test_dataloader, loss_function, pred_mode 
       # pdb.set_trace()
       labels = labels.to(device)
       output = trained_model((input_ - scale_mean)/scale_std)
-      if pred_mode == "full":
-        loss = loss_function(output, labels[:,:])
-      elif (pred_mode == "vel" or pred_mode == "dvel"):
+      if(pred_mode == "vel"):
         positional_loss = loss_function(output[:,:3], labels[:,7:10])
         rotational_loss = loss_function(output[:,3:], labels[:,10:])
         if weighted_loss:
           loss = (weights[0]*positional_loss) + (weights[1]*rotational_loss)
         else:
           loss = loss_function(output, labels[:, 7:])
-      elif (pred_mode == "pos" or pred_mode == "dpos"):
-        positional_loss = loss_function(output[:,:3], labels[:,:3])
-        rotational_loss = loss_function(output[:,3:], labels[:,3:7])
-        if weighted_loss:
-          loss = (weights[0]*positional_loss) + (weights[1]*rotational_loss)
-        else:
-          loss = loss_function(output, labels[:,:7])
-      elif (pred_mode == "dx"):
-        positional_loss = loss_function(output[:,:3], labels[:,:3]) + loss_function(output[:,7:10], labels[:,7:10])
-        rotational_loss = loss_function(output[:,3:7], labels[:,3:7]) + loss_function(output[:,10:], labels[:,10:])
-        if weighted_loss:
-          print("Weighted loss not supported in dx!")
-          sys.exit(1)
-        else:
-          loss = loss_function(output, labels)
-      elif (pred_mode == "fs"):
-        positional_loss = loss_function(output[:,:3], labels[:,:3])
-        rotational_loss = loss_function(output[:,3:7], labels[:,3:7])
-        if weighted_loss:
-          print("Weighted loss not supported in dx!")
-          sys.exit(1)
-        else:
-          loss = loss_function(output, labels[:,:7]) 
+      else:
+        print("This mode is not supported in this repo\n")
+        sys.exit(1) 
       running_loss += loss.item()
       positional_running_loss += positional_loss.item()
       rotational_running_loss += rotational_loss.item()
@@ -266,21 +211,11 @@ def getRecurrentDataset(FILE_PREFIX, NUM_START, NUM_TOSSES, tw = 16, isTest = Fa
     data_ = np.loadtxt(FILE_PREFIX + str(k) + ".csv", delimiter = ",").T
     X = np.zeros((tw,0,13))
     Y = np.zeros((0,13))
-    # print(str(i), "done")
-    if predict_mode == "fs":
-      X_sub = np.expand_dims(data_[0:tw], axis = 1)
-      X = np.append(X,X_sub, axis = 1)
-      Y_sub = (data_[-1].reshape(1,-1))
-      Y = np.append(Y,Y_sub, axis = 0)
-    else:
-      for i in range(len(data_) - tw):
-        X_sub = np.expand_dims(data_[i:i+tw], axis = 1)
-        X = np.append(X, X_sub, axis = 1)
-        if predict_mode == "vel":
-          Y_sub = (data_[i+tw].reshape(1,-1))
-        elif (predict_mode == "dvel" or predict_mode == "dpos" or predict_mode == "dx"):
-          Y_sub = ((data_[i+tw] - data_[i+tw-1]).reshape(1,-1))
-        Y = np.append(Y, Y_sub, axis = 0)
+    for i in range(len(data_) - tw):
+      X_sub = np.expand_dims(data_[i:i+tw], axis = 1)
+      X = np.append(X, X_sub, axis = 1)
+      Y_sub = (data_[i+tw].reshape(1,-1))
+      Y = np.append(Y, Y_sub, axis = 0)
     X_list.append(X)
     Y_list.append(Y)
 
