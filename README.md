@@ -27,7 +27,7 @@ The possible arguments under `<training-settings>` include:
 * `--stiffness <value>`, the stiffness value from {2500, 300, 100} corresponding to which data is to used (default = 2500)
 * `--train_tosses <value>`, number of training trajectories upto 10000 (default = 500)
 * `--tw <value>`, history-length (default 16)
-* `--normlize`, normalize the input data
+* `--normalize`, normalize the input data
 * `--batch_size <value>`, batch-size to use during training (default = 64)
 * `--recurrent_mode <value>`, RNN variant from {lstm, gru, bilstm} to use (default = lstm)
 * `--lr <value>`, learning-rate value to use with Adam Optimizer (default = 1e-4)
