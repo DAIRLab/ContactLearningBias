@@ -29,7 +29,7 @@ The possible arguments under `<training-settings>` include:
 * `--tw <value>`, history-length (default 16)
 * `--normlize`, normalize the input data
 * `--batch_size <value>`, batch-size to use during training (default = 64)
-* `--recurrent_mode <value>`, RNN variant from {lstm, gru, bilstm} to use (default = lstm)
+* `--recurrent_mode <value>`, RNN variant from {mlp, lstm, gru, bilstm} to use (default = lstm)
 * `--lr <value>`, learning-rate value to use with Adam Optimizer (default = 1e-4)
 * `--hidden_size <value>`, width of the hidden-layer of the RNN (default = 256)
 * `--weight_decay <value>`, weight-decay to use for regularization (default = 0)
@@ -45,4 +45,3 @@ tensorboard --logdir=contactlearning/Logs
 ### Evaluation and results
 [`eval_utils.py`](contactlearning/eval_utils.py) includes helper methods used in `train.py` to evaluate trained models. 
 Both training and evaluation results are stored in a `.json` file at *contactlearning/Results*
-//Training and Evaluation

@@ -1,4 +1,3 @@
-#first
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
@@ -77,6 +76,36 @@ class RNNPredictor(nn.Module):
     x = self.fc2(x)
 
     return x
+
+class MLPPredictor(nn.Module):
+
+  def __init__(self, input_size, output_size, hidden_units = [256, 256, 256, 256]):
+    super(MLPPredictor, self).__init__()
+
+    self.output_size = output_size
+    self.hidden_units = hidden_units
+    self.input_size = input_size
+
+    self.hidden_layers = nn.ModuleList()
+
+    input_dim = self.input_size
+
+    # a fully connected layer with len(hidden_units) layers
+    for i in range(len(hidden_units)):
+      self.hidden_layers += [nn.Linear(input_dim, self.hidden_units[i])]
+      self.hidden_layers += [nn.ReLU()]
+      input_dim = self.hidden_units[i]
+
+    #output layer
+    self.output = nn.Linear(input_dim, self.output_size)
+
+  def forward(self, x):
+
+    x = torch.squeeze(x, 0)
+    for layer in self.hidden_layers:
+      x = layer(x)
+
+    return self.output(x)
 
 if __name__ == "__main__":
 	print("RNNPredictor.py executed!")

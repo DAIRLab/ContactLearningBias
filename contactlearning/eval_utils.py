@@ -200,6 +200,16 @@ def rollout_trajectory(trained_model, loss_function, state_sequence,  state_labe
 					loss = loss_function(output, state_labels[rolled_time, 7:].reshape(1,-1))
 				full_pred_state = compute_state_pos(input_sequence, output)
 				err_pos, err_theta = getRotationalError(input_sequence, full_pred_state, state_labels, rolled_time, tw)
+			elif pred_mode == "dvel":
+				positional_loss = loss_function(output[:,:3], state_labels[rolled_time,7:10].reshape(1,-1))
+				rotational_loss = loss_function(output[:,3:], state_labels[rolled_time,10:].reshape(1,-1))
+				if weighted_loss:
+					loss = (weights[0]*positional_loss) + (weights[1]*rotational_loss)
+				else:
+					loss = loss_function(output, state_labels[rolled_time, 7:].reshape(1,-1))
+				output += input_sequence[-1,0,7:]
+				full_pred_state = compute_state_pos(input_sequence, output)
+				err_pos, err_theta = getRotationalError(input_sequence, full_pred_state, gt_trajectory, rolled_time, tw)
 			loss_items.append(loss.item())
 			running_loss += loss.item();
 			total_err_pos += err_pos
@@ -249,6 +259,18 @@ def pred_with_gt(rollout_dataloader, model, loss_function, tw = 16, pred_mode = 
 				err_pos, err_theta = getRotationalError(input_, full_pred_state, labels, single_step = True)
 				plot_labels = np.append(plot_labels, labels.numpy(), axis = 0)
 				plot_predicted = np.append(plot_predicted, full_pred_state, axis = 0)
+			elif pred_mode == "dvel":
+				positional_loss = loss_function(output[:,:3], labels[:,7:10])
+				rotational_loss = loss_function(output[:,3:], labels[:,10:])
+				if weighted_loss:
+					loss = (weights[0]*positional_loss) + (weights[1]*rotational_loss)
+				else:
+					loss = loss_function(output, labels[:, 7:].reshape(1,-1))
+				output += input_[-1,0,7:]
+				full_pred_state = compute_state_pos(input_, output)
+				err_pos, err_theta = getRotationalError(input_, full_pred_state, labels + input_[-1], single_step = True)
+				plot_labels = np.append(plot_labels, labels.numpy(), axis = 0)
+				plot_predicted = np.append(plot_predicted, full_pred_state, axis = 0)
 			if verbose:
 				print("i: ", i)
 				print("input: ", input_)
@@ -284,18 +306,28 @@ def loadModel(PATH, trained_model, model_name = None):
 
 	return trained_model
 
-def evaluateRollout(PATH, trained_model, loss_function, num_tosses = 100, toss_start = 1, pred_mode = "vel", isTest = False, tw = 16, mean_ = 0, std_ =  1, weighted_loss = False, weights = [1,1]):
+def evaluateRollout(PATH, trained_model, loss_function, num_tosses = 100, toss_start = 1, pred_mode = "vel", isTest = False, tw = 16, mean_ = 0, std_ =  1, weighted_loss = False, weights = [1,1], theta_noise = 0, com_noise = 0, synthetic_vel = False):
 	if weighted_loss:
 		print("Inside evaluate Rollout, using weighted loss with weights: ", weights)
 
-	start =  toss_start if not isTest else 10001
+	start = toss_start if not isTest else 10001
 	total_loss = 0
 	total_err_pos = 0
 	total_err_theta = 0
 	for i in range(num_tosses):
 		test_data_ = np.loadtxt(PATH+str(start+i)+".csv", delimiter = ',').T
+		test_data_ = learning_utils.addNoise(test_data_, theta = theta_noise, degrees = True, com_mean = com_noise)
+		if synthetic_vel:
+			test_data_ = learning_utils.constructSyntheticVel(test_data_)
+		#Make sure tw=1
 		state_sequence = test_data_[:tw] #(tw, 13)
-		state_labels = test_data_[tw:] #shape = (x, 13)
+		# state_sequence = test_data_[15].reshape(1,-1)
+		if (pred_mode == "dvel" or pred_mode == "dpos" or pred_mode == "dx"):
+			state_labels = test_data_[tw:,:] - test_data_[tw-1:-1,:]  #check this
+		elif pred_mode == "fs":
+			state_labels = test_data_[-1:]
+		else:
+			state_labels = test_data_[tw:] #shape = (x, 13)
 		ground_truth_trajectory = test_data_[tw:] 
 		trajectory_, loss, err_pos, err_theta, _ = rollout_trajectory(trained_model, loss_function, state_sequence, state_labels, \
 													tw = tw, time_steps = 50, pred_mode=pred_mode, scale_mean = (mean_), scale_std = (std_), weighted_loss = weighted_loss, weights = weights, gt_trajectory = ground_truth_trajectory)
@@ -309,7 +341,7 @@ def evaluateRollout(PATH, trained_model, loss_function, num_tosses = 100, toss_s
 
 	return ROLLOUT_LOSS, ROLLOUT_ROT_ERR, ROLLOUT_POS_ERR
 
-def evaluateSinglestep(PATH, trained_model, loss_function, num_tosses = 100, toss_start = 1, pred_mode = "vel", isTest = False, tw = 16, mean_ = 0, std_ =  1, weighted_loss = False, weights = [1,1]):
+def evaluateSinglestep(PATH, trained_model, loss_function, num_tosses = 100, toss_start = 1, pred_mode = "vel", isTest = False, tw = 16, mean_ = 0, std_ =  1, weighted_loss = False, weights = [1,1], theta_noise = 0, com_noise = 0, synthetic_vel = False):
 	if weighted_loss:
 		print("Inside evaluate singlestep, using weighted loss with weights: ", weights)	
 	start = toss_start if not isTest else 10001
@@ -317,7 +349,7 @@ def evaluateSinglestep(PATH, trained_model, loss_function, num_tosses = 100, tos
 	total_err_pos = 0
 	total_err_theta = 0
 	for i in range(num_tosses):
-		X_roll, y_roll = learning_utils.getRecurrentDataset(PATH, start+i, 1, tw=tw, isEval = True, predict_mode = pred_mode)
+		X_roll, y_roll = learning_utils.getRecurrentDataset(PATH, start+i, 1, tw=tw, isEval = True, predict_mode = pred_mode, theta_noise = theta_noise, com_noise = com_noise, synthetic_vel = synthetic_vel)
 		rollout_dataset = CubeTossDataset(X_roll,y_roll)
 		rollout_dataloader = DataLoader(rollout_dataset, batch_size = 1, shuffle = False)
 		loss, err_pos, err_theta = pred_with_gt(rollout_dataloader, trained_model, loss_function, pred_mode = pred_mode, plot_graphs = False, \
