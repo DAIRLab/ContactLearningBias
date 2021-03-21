@@ -9,6 +9,7 @@ To simulate the die roll system in MuJoCo and generate trajectories, use the des
 python3 generate.py
 ```
 This will result in 11,000 trajectories being stored at *contactlearning/data/<stiffness_value_used>/*
+2,000 example trajectories corresponding to each setting can be downloaded from [here](https://drive.google.com/drive/folders/1AX2J17WYvDL4rSj16imHIUV2RZ5ysnWx?usp=sharing).
 
 To visalize any trajectory using MuJoCo's rendering, run:
 ```
