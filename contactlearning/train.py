@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 import os
-import pdb
+# import pdb
 import json
 import sys
 from scipy.spatial.transform import Rotation as R

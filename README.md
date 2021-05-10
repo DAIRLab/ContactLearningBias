@@ -1,5 +1,20 @@
 # ContactLearningBias
 
+## Requirements
+* Python 3.6.9 or higher
+* 16GB RAM
+* Linux (tested on Ubuntu 18.04 LTS)
+
+GPU is not necessary, although it will provide significant speedup for for the training process.
+
+## Dependencies
+* numpy 1.19.5
+* matplotlib 3.3.2
+* PyTorch 1.7.0
+* scipy 1.5.4
+* sklearn 0.23.2
+* argparse 1.1
+
 ## MuJoCo Installation and Generating Data
 Install [MuJoCo 200](https://www.roboti.us/index.html) at `~/.mujoco/mjpro200`, copy your license key to `~/.mujoco/mjkey.txt` and move the [`cube_toss.xml`](data-scripts/cube_toss.xml) that defines the system model to `/.mujoco/model/`.
 

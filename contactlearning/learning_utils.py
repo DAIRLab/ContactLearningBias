@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import torch
 import os
 import glob
-import pdb
+# import pdb
 import sys
 from scipy.spatial.transform import Rotation as R
 from scipy.spatial.transform import RotationSpline
