@@ -16,16 +16,15 @@ GPU is not necessary, although it will provide significant speedup for for the t
 * argparse 1.1
 
 ## MuJoCo Installation and Generating Data
-Install [MuJoCo 200](https://www.roboti.us/index.html) at `~/.mujoco/mjpro200`, copy your license key to `~/.mujoco/mjkey.txt` and move the [`cube_toss.xml`](data-scripts/cube_toss.xml) that defines the system model to `/.mujoco/model/`.
+A precomputed set of trajectories can be downloaded from [here](https://drive.google.com/drive/folders/1AX2J17WYvDL4rSj16imHIUV2RZ5ysnWx?usp=sharing). However, the *data-scripts* directory contains the scripts to generate additional data and visualize die roll trajectories.
 
-*data-scripts* directory contains the scripts to generate and visualize die roll trajectories. 
+To generate more data, install [MuJoCo 200](https://www.roboti.us/index.html) at `~/.mujoco/mjpro200`, copy your license key to `~/.mujoco/mjkey.txt` and move the [`cube_toss.xml`](data-scripts/cube_toss.xml) that defines the system model to `/.mujoco/model/`.
+
 To simulate the die roll system in MuJoCo and generate trajectories, use the desired contact settings by changing the stiffness and dampping values under the `solref` tag part of the xml script and then run:
 ```
 python3 generate.py
 ```
 This will result in 11,000 trajectories being stored at *contactlearning/data/<stiffness_value_used>/*
-
-2,000 example trajectories corresponding to each stiffness setting can be downloaded from [here](https://drive.google.com/drive/folders/1AX2J17WYvDL4rSj16imHIUV2RZ5ysnWx?usp=sharing).
 
 To visalize any trajectory using MuJoCo's rendering, run:
 ```
