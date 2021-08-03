@@ -1,4 +1,8 @@
-# ContactLearningBias
+# Challenges in Learning Stiff Contact Dynamics
+
+This repository contains numerical experiments that accompany the following publication:
+
+Mihir Parmar*, Mathew Halm*, and Michael Posa. "Fundamental Challenges in Deep Learning for Stiff Contact Dynamics," IROS 2021. 
 
 ## Requirements
 * Python 3.6.9 or higher
