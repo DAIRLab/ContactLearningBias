@@ -11,7 +11,7 @@ Mihir Parmar*, Mathew Halm*, and Michael Posa. "Fundamental Challenges in Deep L
 
 GPU is not necessary, although it will provide significant speedup for for the training process.
 
-## Dependencies
+## Python Dependencies
 * numpy 1.19.5
 * matplotlib 3.3.2
 * PyTorch 1.7.0
